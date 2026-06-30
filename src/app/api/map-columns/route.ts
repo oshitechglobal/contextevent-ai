@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getStagedUpload, deleteStagedUpload } from "@/lib/parsing/staging-store";
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
             headshotUrl: enrichment.headshotUrl,
             interests: enrichment.interests,
             bioNotes: enrichment.bioNotes,
-            careerHistory: enrichment.careerHistory as object[],
+            careerHistory: enrichment.careerHistory as unknown as Prisma.InputJsonValue,
             enrichmentStatus: enrichment.success
               ? enrichment.tier === 1
                 ? "ENRICHED_TIER1"
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
               : "FAILED",
             enrichmentTier: enrichment.tier,
             enrichmentError: enrichment.error,
-            timelineWins,
+            timelineWins: timelineWins as unknown as Prisma.InputJsonValue,
           },
         });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateBioAndStarters, BioStyle, BioLength } from "@/lib/llm/generate";
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
       where: { id: attendeeId },
       data: {
         generatedBio: output.bio,
-        conversationStarters: output.conversationStarters,
+        conversationStarters: output.conversationStarters as unknown as Prisma.InputJsonValue,
         bioStyle,
         bioLength,
         generatedAt: new Date(),
