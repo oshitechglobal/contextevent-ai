@@ -18,25 +18,25 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@prisma/client": "^5.22.0",
+    "lucide-react": "^0.453.0",
     "next": "^15.1.0",
+    "papaparse": "^5.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "xlsx": "^0.18.5",
-    "papaparse": "^5.4.1",
-    "zod": "^3.23.8",
     "uuid": "^9.0.1",
-    "lucide-react": "^0.453.0"
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/node": "^22.8.6",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^9.0.8",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.14",
-    "typescript": "^5.6.3",
-    "@types/node": "^22.8.6",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@types/papaparse": "^5.3.15",
-    "@types/uuid": "^9.0.8"
+    "typescript": "^5.6.3"
   }
 }

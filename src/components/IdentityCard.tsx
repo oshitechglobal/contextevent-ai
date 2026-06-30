@@ -4,6 +4,7 @@ import Avatar from "@/components/Avatar";
 
 interface Props {
   attendee: AttendeeDTO;
+  isPublic?: boolean;
 }
 
 function tierLabel(tier: number | null, status: string): string | null {
@@ -13,7 +14,7 @@ function tierLabel(tier: number | null, status: string): string | null {
   return null;
 }
 
-export default function IdentityCard({ attendee }: Props) {
+export default function IdentityCard({ attendee, isPublic = false }: Props) {
   const failed = attendee.enrichmentStatus === "FAILED";
   const tier = tierLabel(attendee.enrichmentTier, attendee.enrichmentStatus);
 
@@ -39,7 +40,7 @@ export default function IdentityCard({ attendee }: Props) {
           ) : (
             !failed && <p className="text-sm font-medium text-ink-700/40 mt-0.5 italic">No role data found</p>
           )}
-          {tier && (
+          {tier && !isPublic && (
             <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wide text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
               {tier}
             </span>
@@ -51,10 +52,14 @@ export default function IdentityCard({ attendee }: Props) {
         <div className="mt-5 flex items-start gap-2.5 rounded-2xl bg-red-50 border border-red-100 px-4 py-3">
           <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-red-700">Enrichment failed</p>
+            <p className="text-sm font-semibold text-red-700">
+              {isPublic ? "Profile information unavailable" : "Enrichment failed"}
+            </p>
             <p className="text-xs text-red-600/80 mt-0.5">
-              {attendee.enrichmentError ||
-                "Both waterfall tiers failed to return identity data for this attendee."}
+              {isPublic
+                ? "We weren't able to find additional information for this attendee."
+                : attendee.enrichmentError ||
+                  "Both waterfall tiers failed to return identity data for this attendee."}
             </p>
           </div>
         </div>

@@ -15,6 +15,8 @@ const MappingSchema = z.object({
     firstName: z.string().min(1, "First Name column must be mapped"),
     lastName: z.string().min(1, "Last Name column must be mapped"),
     email: z.string().min(1, "Email column must be mapped"),
+    company: z.string().optional(),
+    jobTitle: z.string().optional(),
   }),
 });
 
@@ -55,6 +57,14 @@ export async function POST(req: NextRequest) {
       );
     }
   }
+  for (const optionalField of [mapping.company, mapping.jobTitle]) {
+    if (optionalField && !headers.includes(optionalField)) {
+      return NextResponse.json(
+        { error: `Mapped column "${optionalField}" does not exist in the uploaded file.` },
+        { status: 400 }
+      );
+    }
+  }
 
   // Create the batch record up front so we have a durable ID even if
   // enrichment partially fails partway through.
@@ -90,10 +100,20 @@ export async function POST(req: NextRequest) {
       const firstName = row[mapping.firstName].trim();
       const lastName = row[mapping.lastName].trim();
       const email = row[mapping.email].trim();
+      const userProvidedCompany = mapping.company ? row[mapping.company]?.trim() || null : null;
+      const userProvidedJobTitle = mapping.jobTitle ? row[mapping.jobTitle]?.trim() || null : null;
 
       try {
         const enrichment = await runEnrichmentWaterfall({ firstName, lastName, email });
         const timelineWins = computeTimelineWins(enrichment.careerHistory);
+
+        // Spreadsheet-provided Company/Position are authoritative — they came
+        // directly from the event organizer's own data, so they always take
+        // priority over whatever the enrichment waterfall guessed. Enrichment
+        // still runs to fill in everything else (photo, industry, career
+        // history, timeline wins) that the spreadsheet doesn't contain.
+        const finalJobTitle = userProvidedJobTitle || enrichment.jobTitle;
+        const finalCompany = userProvidedCompany || enrichment.company;
 
         await prisma.enrichedAttendee.create({
           data: {
@@ -101,8 +121,8 @@ export async function POST(req: NextRequest) {
             firstName,
             lastName,
             email,
-            jobTitle: enrichment.jobTitle,
-            company: enrichment.company,
+            jobTitle: finalJobTitle,
+            company: finalCompany,
             industry: enrichment.industry,
             linkedinUrl: enrichment.linkedinUrl,
             headshotUrl: enrichment.headshotUrl,
@@ -124,6 +144,8 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         // Enrichment API failures must never crash the batch — persist a
         // failed-state record so it surfaces an inline error on the card.
+        // Even on enrichment failure, still honor any spreadsheet-provided
+        // company/title so the attendee card isn't fully empty.
         const message = err instanceof Error ? err.message : "Unknown enrichment error";
         await prisma.enrichedAttendee.create({
           data: {
@@ -131,6 +153,8 @@ export async function POST(req: NextRequest) {
             firstName,
             lastName,
             email,
+            jobTitle: userProvidedJobTitle,
+            company: userProvidedCompany,
             enrichmentStatus: "FAILED",
             enrichmentError: message,
             timelineWins: [],

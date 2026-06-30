@@ -148,27 +148,69 @@ you claim a static domain on a paid plan.
 
 ---
 
+## Admin Portal vs. Guest Portal
+
+This app now has two distinct surfaces:
+
+| | Admin Portal | Guest Portal |
+|---|---|---|
+| URL | `/admin` (upload, manage) and `/admin/batch/[batchId]` (full control) | `/event/[batchId]` |
+| Access | Password-protected (`ADMIN_PASSWORD`) | Public, no login |
+| Capabilities | Upload files, map columns, view attendees, click Generate Bio | View attendees and any already-generated bios — read-only |
+| Internal details shown | Enrichment tier badges, raw error messages | Hidden — guests see a generic "information unavailable" message instead |
+
+**Admin auth** is a single shared password (not per-user accounts) verified
+against `ADMIN_PASSWORD`, backed by an HMAC-signed, httpOnly session cookie
+(`src/lib/admin-auth.ts`). Sessions last 7 days. All `/admin/*` pages and
+`/api/admin/*` routes are gated by `src/middleware.ts` — hitting an admin API
+route directly without a valid session returns a 401, not just the UI page
+being blocked.
+
+**To share an event with guests**: after uploading and enriching a batch in
+the Admin Portal, click **"Copy guest link"** in the batch workspace's top
+nav — this copies the `/event/[batchId]` URL to your clipboard. Anyone with
+that link can view the attendee directory and any bios you've already
+generated, with no login required. They cannot trigger new bio generation or
+see enrichment error details — those stay admin-only.
+
+Update `.env` / your hosting platform's environment variables with:
+```
+ADMIN_PASSWORD="choose-a-strong-password"
+ADMIN_SESSION_SECRET=""   # optional — falls back to ADMIN_PASSWORD if unset
+```
+
+---
+
 ## Application Flow
 
-1. **Upload** (`/`) — drag-and-drop a `.csv` or `.xlsx` file. The file is
-   parsed server-side (`/api/upload`) and staged in memory with a 30-minute
-   TTL; headers + a 5-row preview are returned to the client.
-2. **Column Mapping Wizard** — the UI auto-guesses First Name / Last Name /
-   Email columns from common header patterns, but requires explicit
-   confirmation before proceeding (Epic 1 requirement).
-3. **Submit** (`/api/map-columns`) — creates an `UploadBatch` row, then runs
-   the enrichment waterfall (Epic 2) and timeline wins engine (Epic 3) for
-   every valid row with bounded concurrency (4 at a time), persisting each
-   result as an `EnrichedAttendee` row. Rows with missing/invalid required
-   fields are skipped and reported; enrichment failures are captured
-   per-attendee without aborting the batch.
-4. **Batch Workspace** (`/batch/[batchId]`) — the multi-panel UI: attendee
-   sidebar, Identity Card (left), Config Controller (right), Wins Panel
-   (center, auto-collapsing), and the Generated Bio + Conversation Starters
-   output matrix (lower).
-5. **Generate Bio** (`/api/generate-bio`) — one concurrent Claude call per
-   click, returning validated structured JSON (bio + exactly 5 themed
+1. **Log in** (`/admin/login`) — enter `ADMIN_PASSWORD` to access the upload tools.
+2. **Upload** (`/admin`) — drag-and-drop a `.csv` or `.xlsx` file. The file is
+   parsed server-side (`/api/admin/upload`) and staged in memory with a
+   30-minute TTL; headers + a 5-row preview are returned to the client.
+3. **Column Mapping Wizard** — the UI auto-guesses First Name / Last Name /
+   Email / Company / Position columns from common header patterns. First
+   Name, Last Name, and Email are required and must be explicitly confirmed;
+   Company and Position are optional and, when mapped, take priority over
+   whatever the enrichment waterfall guesses for those fields.
+4. **Submit** (`/api/admin/map-columns`) — creates an `UploadBatch` row, then
+   runs the enrichment waterfall (Epic 2) and timeline wins engine (Epic 3)
+   for every valid row with bounded concurrency (4 at a time), persisting
+   each result as an `EnrichedAttendee` row. Rows with missing/invalid
+   required fields are skipped and reported; enrichment failures are
+   captured per-attendee without aborting the batch.
+5. **Admin Batch Workspace** (`/admin/batch/[batchId]`) — the full
+   multi-panel UI: attendee sidebar, Identity Card (left), Config Controller
+   (right), Wins Panel (center, auto-collapsing), and the Generated Bio +
+   Conversation Starters output matrix (lower). Includes a "Copy guest link"
+   button to share the read-only version with attendees.
+6. **Generate Bio** (`/api/admin/generate-bio`) — one concurrent Claude call
+   per click, returning validated structured JSON (bio + exactly 5 themed
    conversation starters), persisted back onto the attendee record.
+7. **Guest Portal** (`/event/[batchId]`) — public, no login. Read-only
+   attendee directory showing the same Identity Card and Wins Panel, plus
+   any bios/conversation starters the admin has already generated. No
+   Generate Bio control, and internal details (enrichment tier, raw API
+   error text) are hidden in favor of generic messaging.
 
 ---
 
@@ -218,25 +260,38 @@ contextevent-ai/
 ├── prisma/
 │   └── schema.prisma
 └── src/
+    ├── middleware.ts                       # Gates /admin/* + /api/admin/* with session cookie
     ├── app/
     │   ├── layout.tsx
     │   ├── globals.css
-    │   ├── page.tsx                       # Upload + mapping wizard entry
-    │   ├── batch/[batchId]/
-    │   │   ├── page.tsx
+    │   ├── page.tsx                        # Redirects "/" → "/admin"
+    │   ├── admin/
+    │   │   ├── page.tsx                    # Upload + mapping wizard (password-protected)
+    │   │   ├── login/page.tsx
+    │   │   └── batch/[batchId]/
+    │   │       ├── page.tsx                # Full admin workspace (Generate Bio, etc.)
+    │   │       ├── loading.tsx
+    │   │       ├── error.tsx
+    │   │       └── not-found.tsx
+    │   ├── event/[batchId]/
+    │   │   ├── page.tsx                    # Public read-only guest portal
     │   │   ├── loading.tsx
     │   │   ├── error.tsx
     │   │   └── not-found.tsx
     │   └── api/
-    │       ├── upload/route.ts
-    │       ├── map-columns/route.ts
-    │       ├── batches/[batchId]/route.ts
-    │       ├── generate-bio/route.ts
-    │       └── image-proxy/route.ts
+    │       ├── admin/
+    │       │   ├── login/route.ts
+    │       │   ├── logout/route.ts
+    │       │   ├── upload/route.ts
+    │       │   ├── map-columns/route.ts
+    │       │   └── generate-bio/route.ts
+    │       ├── batches/[batchId]/route.ts  # Public — used by both admin and guest portal
+    │       └── image-proxy/route.ts        # Public
     ├── components/
     │   ├── UploadDropzone.tsx
     │   ├── MappingWizard.tsx
-    │   ├── BatchWorkspace.tsx
+    │   ├── BatchWorkspace.tsx              # Admin: full controls
+    │   ├── GuestWorkspace.tsx              # Guest: read-only
     │   ├── AttendeeListSidebar.tsx
     │   ├── IdentityCard.tsx
     │   ├── ConfigController.tsx
@@ -247,6 +302,7 @@ contextevent-ai/
     └── lib/
         ├── prisma.ts
         ├── types.ts
+        ├── admin-auth.ts                   # Web Crypto-based session signing (Edge-compatible)
         ├── parsing/
         │   ├── file-parser.ts
         │   └── staging-store.ts

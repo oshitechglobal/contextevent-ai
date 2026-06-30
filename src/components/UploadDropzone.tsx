@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { UploadCloud, FileSpreadsheet, Loader2 } from "lucide-react";
-import type { StagedUploadInfo } from "@/app/page";
+import type { StagedUploadInfo } from "@/app/admin/page";
 
 interface Props {
   onParsed: (info: StagedUploadInfo) => void;
@@ -21,7 +21,7 @@ export default function UploadDropzone({ onParsed, onError }: Props) {
         const formData = new FormData();
         formData.append("file", file);
 
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
         const data = await res.json();
 
         if (!res.ok) {

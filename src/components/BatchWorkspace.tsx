@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, RefreshCw, Users, Link2, Check } from "lucide-react";
 import type { AttendeeDTO, BatchDTO } from "@/lib/types";
 import AttendeeListSidebar from "@/components/AttendeeListSidebar";
 import IdentityCard from "@/components/IdentityCard";
@@ -20,6 +20,7 @@ export default function BatchWorkspace({ initialBatch }: Props) {
     initialBatch.attendees[0]?.id ?? null
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const selected = useMemo(
     () => batch.attendees.find((a) => a.id === selectedId) ?? null,
@@ -44,6 +45,17 @@ export default function BatchWorkspace({ initialBatch }: Props) {
     }
   }
 
+  async function copyGuestLink() {
+    const publicUrl = `${window.location.origin}/event/${batch.id}`;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable — fail silently, link is still visible to copy manually.
+    }
+  }
+
   const enrichedCount = batch.attendees.filter((a) => a.enrichmentStatus !== "FAILED").length;
   const failedCount = batch.attendees.filter((a) => a.enrichmentStatus === "FAILED").length;
 
@@ -53,7 +65,7 @@ export default function BatchWorkspace({ initialBatch }: Props) {
       <nav className="sticky top-0 z-20 backdrop-blur-md bg-white/80 border-b border-ink-700/5 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/"
+            href="/admin"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-700/70 hover:text-ink-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -70,14 +82,23 @@ export default function BatchWorkspace({ initialBatch }: Props) {
           </div>
         </div>
 
-        <button
-          onClick={refreshBatch}
-          disabled={isRefreshing}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-700/60 hover:text-ink-900 px-3 py-1.5 rounded-lg hover:bg-surface-sunken transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={copyGuestLink}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+          >
+            {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+            {linkCopied ? "Copied!" : "Copy guest link"}
+          </button>
+          <button
+            onClick={refreshBatch}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-700/60 hover:text-ink-900 px-3 py-1.5 rounded-lg hover:bg-surface-sunken transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </nav>
 
       <div className="flex flex-1 min-h-0">
@@ -124,7 +145,7 @@ function AttendeeDetail({
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const res = await fetch("/api/generate-bio", {
+      const res = await fetch("/api/admin/generate-bio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ attendeeId: attendee.id, bioStyle, bioLength }),

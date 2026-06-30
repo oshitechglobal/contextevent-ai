@@ -2,21 +2,32 @@
 
 import { useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import type { StagedUploadInfo } from "@/app/page";
+import type { StagedUploadInfo } from "@/app/admin/page";
 
 interface Props {
   staged: StagedUploadInfo;
   isSubmitting: boolean;
   onCancel: () => void;
-  onConfirm: (mapping: { firstName: string; lastName: string; email: string }) => void;
+  onConfirm: (mapping: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    company?: string;
+    jobTitle?: string;
+  }) => void;
 }
 
-type FieldKey = "firstName" | "lastName" | "email";
+type FieldKey = "firstName" | "lastName" | "email" | "company" | "jobTitle";
+
+const REQUIRED_FIELDS: FieldKey[] = ["firstName", "lastName", "email"];
+const OPTIONAL_FIELDS: FieldKey[] = ["company", "jobTitle"];
 
 const FIELD_LABELS: Record<FieldKey, string> = {
   firstName: "First Name",
   lastName: "Last Name",
   email: "Email",
+  company: "Company",
+  jobTitle: "Position / Job Title",
 };
 
 function guessMapping(headers: string[]): Partial<Record<FieldKey, string>> {
@@ -34,6 +45,8 @@ function guessMapping(headers: string[]): Partial<Record<FieldKey, string>> {
   guess.firstName = findMatch(["first name", "firstname", "first_name", "fname", "given name"]);
   guess.lastName = findMatch(["last name", "lastname", "last_name", "lname", "surname", "family name"]);
   guess.email = findMatch(["email", "e-mail", "email address"]);
+  guess.company = findMatch(["company", "organization", "organisation", "employer", "company name"]);
+  guess.jobTitle = findMatch(["position", "job title", "jobtitle", "title", "role"]);
 
   return guess;
 }
@@ -43,11 +56,17 @@ export default function MappingWizard({ staged, isSubmitting, onCancel, onConfir
   const [mapping, setMapping] = useState<Partial<Record<FieldKey, string>>>(initialGuess);
 
   const isComplete = mapping.firstName && mapping.lastName && mapping.email;
-  const fields: FieldKey[] = ["firstName", "lastName", "email"];
+  const allFields: FieldKey[] = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
   function handleSubmit() {
     if (!mapping.firstName || !mapping.lastName || !mapping.email) return;
-    onConfirm({ firstName: mapping.firstName, lastName: mapping.lastName, email: mapping.email });
+    onConfirm({
+      firstName: mapping.firstName,
+      lastName: mapping.lastName,
+      email: mapping.email,
+      company: mapping.company || undefined,
+      jobTitle: mapping.jobTitle || undefined,
+    });
   }
 
   return (
@@ -68,26 +87,35 @@ export default function MappingWizard({ staged, isSubmitting, onCancel, onConfir
       </p>
 
       <div className="space-y-4">
-        {fields.map((field) => (
-          <div key={field} className="flex items-center gap-4">
-            <div className="w-32 shrink-0">
-              <span className="text-sm font-semibold text-ink-900">{FIELD_LABELS[field]}</span>
-              <span className="text-red-500 ml-0.5">*</span>
-            </div>
-            <select
-              value={mapping[field] ?? ""}
-              onChange={(e) => setMapping((prev) => ({ ...prev, [field]: e.target.value || undefined }))}
-              className="flex-1 rounded-xl border border-ink-700/15 bg-surface-muted px-4 py-2.5 text-sm font-medium text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-400 transition-shadow"
-            >
-              <option value="">Select a column…</option>
-              {staged.headers.map((header) => (
-                <option key={header} value={header}>
-                  {header}
+        {allFields.map((field) => {
+          const isRequired = REQUIRED_FIELDS.includes(field);
+          return (
+            <div key={field} className="flex items-center gap-4">
+              <div className="w-40 shrink-0">
+                <span className="text-sm font-semibold text-ink-900">{FIELD_LABELS[field]}</span>
+                {isRequired ? (
+                  <span className="text-red-500 ml-0.5">*</span>
+                ) : (
+                  <span className="text-ink-700/35 text-xs ml-1.5">(optional)</span>
+                )}
+              </div>
+              <select
+                value={mapping[field] ?? ""}
+                onChange={(e) => setMapping((prev) => ({ ...prev, [field]: e.target.value || undefined }))}
+                className="flex-1 rounded-xl border border-ink-700/15 bg-surface-muted px-4 py-2.5 text-sm font-medium text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-400 transition-shadow"
+              >
+                <option value="">
+                  {isRequired ? "Select a column…" : "Not in my file"}
                 </option>
-              ))}
-            </select>
-          </div>
-        ))}
+                {staged.headers.map((header) => (
+                  <option key={header} value={header}>
+                    {header}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-7 rounded-2xl bg-surface-muted border border-ink-700/5 p-4 overflow-x-auto">

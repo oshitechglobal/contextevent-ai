@@ -33,7 +33,7 @@ export default function BatchError({
           Try again
         </button>
         <Link
-          href="/"
+          href="/admin"
           className="inline-flex items-center gap-2 rounded-xl border border-ink-700/15 hover:bg-surface-sunken text-ink-900 font-semibold px-5 py-2.5 transition-colors"
         >
           Start over

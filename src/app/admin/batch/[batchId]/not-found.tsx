@@ -12,7 +12,7 @@ export default function NotFound() {
         This batch may have been deleted, or the link is incorrect.
       </p>
       <Link
-        href="/"
+        href="/admin"
         className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 transition-colors"
       >
         Start a new upload
