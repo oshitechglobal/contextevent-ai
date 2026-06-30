@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-image: radial-gradient(circle at 20% 0%, #eef1ff 0%, #f7f8fc 45%, #f7f8fc 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: #c7d2fe;
+  }
+}
+
+@layer components {
+  .micro-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-700/60;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-black/[0.03] transition-shadow duration-300;
+  }
+
+  .card-hover {
+    @apply hover:shadow-card-hover;
+  }
+}
+
+@layer utilities {
+  .skeleton-shimmer {
+    background: linear-gradient(to right, #eef0f7 8%, #f7f8fc 18%, #eef0f7 33%);
+    background-size: 936px 100%;
+  }
+}

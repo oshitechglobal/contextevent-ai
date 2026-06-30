@@ -1,0 +1,97 @@
+// ContextEvent AI — Prisma schema
+// Run `npm run db:push` for quick dev sync, or `npm run db:migrate` for versioned migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BatchStatus {
+  PENDING_MAPPING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EnrichmentStatus {
+  PENDING
+  ENRICHED_TIER1
+  ENRICHED_TIER2
+  FAILED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches UploadBatch[]
+
+  @@map("users")
+}
+
+model UploadBatch {
+  id            String      @id @default(uuid())
+  userId        String?
+  fileName      String
+  originalFileType String
+  status        BatchStatus @default(PENDING_MAPPING)
+  columnMapping Json?       // { firstName: "Col A", lastName: "Col B", email: "Col C" }
+  rawRowCount   Int         @default(0)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user      User?               @relation(fields: [userId], references: [id])
+  attendees EnrichedAttendee[]
+
+  @@map("upload_batches")
+}
+
+model EnrichedAttendee {
+  id        String @id @default(uuid())
+  batchId   String
+
+  // Raw mapped input
+  firstName String
+  lastName  String
+  email     String
+
+  // Enrichment output
+  jobTitle        String?
+  company         String?
+  industry        String?
+  linkedinUrl     String?
+  headshotUrl     String?
+  interests       String[] @default([])
+  bioNotes        String?
+  careerHistory   Json?    // array of { title, company, startDate, endDate, description }
+
+  enrichmentStatus EnrichmentStatus @default(PENDING)
+  enrichmentTier   Int?             // 1 = primary (Apify/PDL/Apollo), 2 = fallback (web scan)
+  enrichmentError  String?
+
+  // Epic 3 — Timeline Wins
+  timelineWins Json? // string[] of labeled achievements
+
+  // Epic 4 — Generated content
+  generatedBio          String?
+  conversationStarters   Json?   // [{ text: string, theme: string }]
+  bioStyle              String?
+  bioLength             String?
+  generatedAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batch UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("enriched_attendees")
+}
